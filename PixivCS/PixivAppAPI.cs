@@ -229,7 +229,8 @@ namespace PixivCS
                 ("filter", Filter)
             };
             var res = await RequestCall("GET", url, Query: query, RequireAuth: RequireAuth);
-            return JsonDocument.Parse(await GetResponseString(res));
+            var responseString = await GetResponseString(res);
+            return JsonDocument.Parse(responseString);
         }
 
         //搜索

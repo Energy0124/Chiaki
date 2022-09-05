@@ -5,11 +5,13 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using ChiakiDiscord.Data.Pixiv;
 using Discord;
 using Discord.Commands;
-using DiscordBot.Data;
 using LiteDB;
 using PixivCS;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using User = DiscordBot.Data.User;
 
 namespace DiscordBot.Modules
 {
@@ -29,7 +31,7 @@ namespace DiscordBot.Modules
             PixivAppApiCache[Context.User.Id] = pixivAppApi;
 
             var auth = await pixivAppApi.Auth(username, password);
-            var json = await FormatJson(auth);
+            var json = await FormatJson(auth, true);
             // await Context.Channel.SendMessageAsync(json);
             string refreshToken;
             string name;
@@ -65,20 +67,26 @@ namespace DiscordBot.Modules
                 $"Login successfully as {name} ({id})");
         }
 
-        private static async Task<string> FormatJson(JsonDocument jsonDocument)
+        private static async Task<string> FormatJson(JsonDocument jsonDocument, bool indented = true)
         {
             await using var stream = new MemoryStream();
-            Utf8JsonWriter writer = new Utf8JsonWriter(stream, new JsonWriterOptions {Indented = true});
+            Utf8JsonWriter writer = new Utf8JsonWriter(stream, new JsonWriterOptions {Indented = indented});
             jsonDocument.WriteTo(writer);
             await writer.FlushAsync();
             string json = Encoding.UTF8.GetString(stream.ToArray());
             return json;
         }
 
+
         // Send default pixiv image '!pixiv' or '!pixiv default'
         [Command, Alias("random")]
         public Task SendDefaultImageAsync()
             => SendIllustRankingImage();
+
+        // Send default pixiv image '!pixiv' or '!pixiv default'
+        [Command("trending")]
+        public Task Trending()
+            => SendTrendingTagsIllust();
 
         // Send pixiv image by id '!pixiv [id]'
         [Command]
@@ -96,8 +104,8 @@ namespace DiscordBot.Modules
             {
                 // url = illustDetail.RootElement.GetProperty("illust").GetProperty("image_urls").GetProperty("large")
                 //     .ToString();
-                url = illustDetail.RootElement.GetProperty("illust").GetProperty("meta_single_page").GetProperty("original_image_url").GetString();
-
+                url = illustDetail.RootElement.GetProperty("illust").GetProperty("meta_single_page")
+                    .GetProperty("original_image_url").GetString();
             }
             catch (Exception e)
             {
@@ -154,6 +162,65 @@ namespace DiscordBot.Modules
                 Color = new Color(0x0096fa), // color of the day
             };
             embed.AddField("Author", author);
+
+            await ReplyAsync("", embed: embed.Build());
+            await using var resStream = await (await pixivAppApi.RequestCall("GET",
+                    url, new Dictionary<string, string>() {{"Referer", "https://app-api.pixiv.net/"}})).Content
+                .ReadAsStreamAsync();
+            await Context.Channel.SendFileAsync(resStream, "image.jpg");
+        }
+
+        private async Task SendTrendingTagsIllust()
+        {
+            var pixivAppApi = await GetPixivAppApi();
+
+            var trendingTagsIllust = await pixivAppApi.TrendingTagsIllust();
+            var json = await FormatJson(trendingTagsIllust, false);
+            var trendingTags = JsonSerializer.Deserialize<TrendingTags>(json);
+
+            string url;
+            string title;
+            ulong id;
+            string author;
+            string trendingTag;
+            try
+            {
+                // var json = await FormatJson(trendingTagsIllust);
+                // await Context.Channel.SendMessageAsync(json);
+                // return;
+
+                var count = trendingTags.TrendTags.Count;
+
+                Random rand = new Random();
+                int toSkip = rand.Next(0, count);
+                var trendTag = trendingTags.TrendTags.Skip(toSkip).Take(1).FirstOrDefault();
+                url = trendTag.Illust.MetaSinglePage.OriginalImageUrl;
+                title = trendTag.Illust.Title;
+                id = trendTag.Illust.Id;
+                author = trendTag.Illust.User.Name;
+                trendingTag = trendTag.Tag;
+
+
+                // url = randomIllust.GetProperty("meta_single_page").GetProperty("original_image_url").GetString();
+                // title = randomIllust.GetProperty("title").GetString();
+                // id = randomIllust.GetProperty("id").GetUInt64();
+                // author = randomIllust.GetProperty("user").GetProperty("name").GetString();
+            }
+            catch (Exception e)
+            {
+                await Context.Channel.SendMessageAsync(
+                    $"Failed to query trendingTagsIllust");
+                return;
+            }
+
+            var embed = new EmbedBuilder
+            {
+                Title = title,
+                Description = id.ToString(),
+                Color = new Color(0x0096fa), // color of the day
+            };
+            embed.AddField("Author", author);
+            embed.AddField("TrendingTag", trendingTag);
 
             await ReplyAsync("", embed: embed.Build());
             await using var resStream = await (await pixivAppApi.RequestCall("GET",
