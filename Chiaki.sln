@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chiaki", "Chiaki\Chiaki.csproj", "{F13E2976-0B6A-4456-945F-879D58C89269}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChiakiDesktop", "ChiakiDesktop\ChiakiDesktop.csproj", "{F13E2976-0B6A-4456-945F-879D58C89269}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChiakiDiscord", "ChiakiDiscord\ChiakiDiscord.csproj", "{3B4420AC-AFA1-4620-B8CD-6D58B9152EB4}"
 EndProject
